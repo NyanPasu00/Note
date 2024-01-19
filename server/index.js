@@ -173,7 +173,7 @@ app.post("/searchProduct", authenticateToken, (req, res) => {
   LEFT JOIN client.createrma E ON R.serialNum = E.serialNum
   WHERE ( DATE_FORMAT(R.registerDate,'%Y-%m-%d') LIKE '%${searchQuery}%' OR R.name LIKE '%${searchQuery}%' OR R.serialNum LIKE '%${searchQuery}%' 
   OR R.productname LIKE '%${searchQuery}%' OR  DATE_FORMAT(R.warrantyexpired ,'%Y-%m-%d') LIKE '%${searchQuery}%' OR R.warrantyStatus LIKE '%${searchQuery}%' 
-  OR CONCAT('RMA', LPAD(E.rma_id, 4, '0')) LIKE 'RMA%${searchQuery}%' OR E.reason LIKE '%${searchQuery}%' OR E.rmaStatus LIKE '%${searchQuery}%' ) AND uid ="${uid}"; 
+  OR CONCAT('RMA', LPAD(E.rma_id, 4, '0')) LIKE 'RMA%${searchQuery}%' OR E.reason LIKE '%${searchQuery}%' OR E.rmaStatus LIKE '%${searchQuery}%' ) AND uid ="${uid}" AND display =true; 
   COMMIT;
   `;
 
