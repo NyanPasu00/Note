@@ -1,101 +1,115 @@
+import { Button } from "@mui/material";
 import axios from "axios";
 import React, { useState } from "react";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import styled from "@emotion/styled";
+
 axios.defaults.withCredentials = true;
 export function JWT() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [data, setData] = useState("");
-  const [accessToken, setAccessToken] = useState("12345");
+  const [subject, setSubject] = useState("");
+  const [toEmail, setToEmail] = useState("");
+  const [text, setText] = useState("");
 
-  const fakeLogin = async (username, password) => {
-    axios
-      .post(
-        "http://localhost:3002/login?username=" +
-          username +
-          "&password=" +
-          password
-      )
-      .then((response) => {
-        console.log(response);
-        setAccessToken(response.data.accessToken);
-      })
-      .catch((error) => {
-        console.error("Error Getting data:", error);
-      });
+  const VisuallyHiddenInput = styled("input")({
+    clip: "rect(0 0 0 0)",
+    clipPath: "inset(50%)",
+    height: 1,
+    overflow: "hidden",
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    whiteSpace: "nowrap",
+    width: 1,
+  });
+
+  const [selectedFiles, setSelectedFiles] = useState([]);
+
+  const handlePDFImageUpload = (e) => {
+    const files = e.target.files;
+    setSelectedFiles([...selectedFiles, ...files]);
   };
+  
+  const sendEmail = async () => {
+    const formData = new FormData();
+    formData.append("subject", subject);
+    formData.append("toEmail", toEmail);
+    formData.append("text", text);
+    selectedFiles.forEach((file) => {
+      formData.append('selectedFiles', file);
+    });
 
-  const fakeProtectedRequest = async (username) => {
     try {
       const response = await axios.post(
-        "http://localhost:3002/getResult",
-        {username},
+        "http://localhost:3002/sendemail",
+        formData,
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "multipart/form-data",
           },
         }
       );
-  
-      console.log(response.data);
+      console.log(response);
     } catch (error) {
-      console.error(error);
+      console.error("Error sending email:", error);
     }
   };
-
-  const getRefreshCookie = async () => {
-    try {
-      const response = await axios.get(
-        "http://localhost:3002/getRefreshCookie"
-      );
-      console.log(response.data);
-      return response.data.refreshToken;
-    } catch (error) {
-      console.error("Error getting refresh cookie:", error);
-      return null;
-    }
-  };
-
-  const getNewAccessToken = async () => {
-    try {
-      const refreshToken = await getRefreshCookie();
-      if (!refreshToken) {
-        console.error("No refresh token available");
-        return;
-      }
-
-      const response = await axios.post("http://localhost:3002/token");
-
-      setAccessToken(response.data.accessToken);
-    } catch (error) {
-      console.error("Error refreshing access token:", error);
-    }
-  };
-  console.log(accessToken);
   return (
-    <div>
-      <h1>React Authentication Example</h1>
-
+    <>
       <div>
-        <label>Username:</label>
+        <label htmlFor="name">Subject:</label>
         <input
           type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          id="name"
+          name="name"
+          placeholder="Enter your Subject"
+          required
+          onChange={(e) => setSubject(e.target.value)}
         />
-      </div>
-      <div>
-        <label>Password:</label>
+        <br />
+
+        <label htmlFor="email">Enter Email Want to Send:</label>
         <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          type="email"
+          id="email"
+          name="email"
+          placeholder="Enter your email"
+          required
+          onChange={(e) => setToEmail(e.target.value)}
         />
+        <br />
+
+        <label htmlFor="password">Text :</label>
+        <input
+          type="text"
+          id="text"
+          name="text"
+          placeholder="Enter your text"
+          required
+          onChange={(e) => setText(e.target.value)}
+        />
+        <br />
+        <div>
+          <Button
+            component="label"
+            variant="contained"
+            size="small"
+            startIcon={<CloudUploadIcon />}
+          >
+            Upload file
+            <VisuallyHiddenInput
+              type="file"
+              onChange={handlePDFImageUpload}
+              name="selectedFiles"
+              multiple
+            />
+          </Button>
+        </div>
+        <div>
+          <button type="button" onClick={sendEmail}>
+            Send Email
+          </button>
+        </div>
       </div>
-      <button onClick={() => fakeLogin(username, password)}>Login</button>
-      <button onClick={() => fakeProtectedRequest(username)}>
-        Get Protected Resource
-      </button>
-      <button onClick={getNewAccessToken}>Get RefreshToken</button>
-    </div>
+    </>
   );
 }

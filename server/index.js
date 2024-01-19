@@ -3,8 +3,8 @@ const express = require("express");
 const app = express();
 const mysql = require("mysql");
 const path = require("path");
-const multer = require("multer");
-const cors = require("cors");
+const multer = require("multer"); 
+const cors = require("cors"); 
 const {
   authenticateToken,
 } = require("../JavaScript/JWT/JsonToken/authMiddleware");
@@ -19,7 +19,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
+ 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -135,7 +135,7 @@ app.post(
 );
 
 //Get information from register Product
-app.get("/getregisProduct", authenticateToken, (req, res) => {
+app.get("/getregisProduct", authenticateToken, (req, res) => { 
   const uid = req.query.uid;
   const rowsPerPage = req.query.rowsPerPage;
   const page = req.query.page;

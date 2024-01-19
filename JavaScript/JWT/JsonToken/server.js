@@ -1,21 +1,27 @@
 require("dotenv").config();
 const express = require("express");
+const nodeMailer = require("nodemailer");
+const multer = require('multer');
 const cookieParser = require("cookie-parser");
 const mysql = require("mysql");
 const cors = require("cors");
 const app = express();
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("./authMiddleware");
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
     origin: "http://localhost:3000",
     credentials: true,
-    methods: ["GET", "POST", "OPTIONS", "PUT" , "DELETE"], // Add the relevant methods
+    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"], // Add the relevant methods
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+
 
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
@@ -33,7 +39,7 @@ db.connect((err) => {
 
 app.delete("/logout", (req, res) => {
   // Clear the refreshToken cookie on the client side
-  res.clearCookie('refreshToken', { httpOnly: true });
+  res.clearCookie("refreshToken", { httpOnly: true });
 
   // Respond with a status indicating success (204 No Content)
   res.sendStatus(204);
@@ -49,7 +55,7 @@ app.post("/refreshtoken", (req, res) => {
     const accessToken = generateAccessToken({ name: user.name });
     res.json({ accessToken: accessToken });
   });
-}); 
+});
 
 app.post("/loginInformation", (req, res) => {
   const email = req.body.email;
@@ -116,15 +122,61 @@ app.post("/checkingExpired", (req, res) => {
       return res.json({ message: "Token is valid", refresh: false });
     }
   });
-});  
+});
 
 app.get("/getRefreshCookie", (req, res) => {
   const refreshToken = req.cookies.refreshToken;
   res.json({ refreshToken: refreshToken });
 });
-    
 
 function generateAccessToken(user) {
   return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "10s" });
 }
+
+//Sending Email
+app.post('/sendemail', upload.array('selectedFiles'), (req, res) => {
+  const { subject, toEmail, text } = req.body;
+  const files = req.files;
+  console.log(req.files);
+  console.log('Received Files:', files);
+
+  const transporter = nodeMailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL,
+      pass: process.env.PASSWORD,
+    },
+  });
+
+  const attachments = files.map((file) => ({
+    filename: file.originalname,
+    content: file.buffer,
+    encoding: 'base64',
+    mimetype: file.mimetype,
+  }));
+
+  const mailOptions = {
+    from: process.env.GMAIL,
+    to: toEmail,
+    subject: subject,
+    text: text,
+    attachments: attachments,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error('Error sending email:', error);
+
+      // Check if the error includes more details
+      if (error.response) {
+        console.error('SMTP Error Response:', error.response);
+      }
+
+      res.status(500).send('Error sending email');
+    } else {
+      console.log('Email sent:', info.response);
+      res.status(200).send('Email Sent Successfully');
+    }
+  });
+});
 app.listen(3002);
