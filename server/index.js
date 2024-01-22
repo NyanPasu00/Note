@@ -18,8 +18,8 @@ app.use(
     methods: ["GET", "POST", "OPTIONS", "PUT"], // Add the relevant methods
     allowedHeaders: ["Content-Type", "Authorization"],
   })
-);
- 
+);  
+     
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -254,7 +254,7 @@ app.put("/updateWaybill", (req, res) => {
     } else {
       res.status(200).json(result);
     }
-  });
+  }); 
 });
 
 app.listen(3001, () => {

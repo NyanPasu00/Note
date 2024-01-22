@@ -7,7 +7,6 @@ const mysql = require("mysql");
 const cors = require("cors");
 const app = express();
 const jwt = require("jsonwebtoken");
-const { authenticateToken } = require("./authMiddleware");
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 app.use(express.json());
@@ -79,9 +78,9 @@ app.post("/loginInformation", (req, res) => {
     } else {
       const accessToken = generateAccessToken(user);
       const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET);
-      try {
+      try {   
         console.log("Setting refreshToken cookie...");
-
+     
         const expirationTime = new Date(new Date().getTime() + 500 * 1000); // 5 seconds from now
         res.cookie("refreshToken", refreshToken, {
           sameSite: "strict",
@@ -122,11 +121,6 @@ app.post("/checkingExpired", (req, res) => {
       return res.json({ message: "Token is valid", refresh: false });
     }
   });
-});
-
-app.get("/getRefreshCookie", (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
-  res.json({ refreshToken: refreshToken });
 });
 
 function generateAccessToken(user) {

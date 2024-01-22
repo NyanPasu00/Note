@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useLayoutEffect } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import axios from "axios";
 import moment from "moment";
 import { RegisProduct } from "./RegisProduct";
@@ -53,7 +53,6 @@ export function Home() {
     newUser,
     setProductData,
     setallRmaInfo,
-    refreshingToken,
     checkAndRefresh,
   } = useContext(AuthContext);
 
@@ -167,7 +166,7 @@ export function Home() {
     }
   };
 
-  const searchInTable = async () => {
+  const searchInTable = useCallback(async () => {
     const token = await checkAndRefresh();
     try {
       const response = await axios.post(
@@ -186,10 +185,10 @@ export function Home() {
     } catch (error) {
       console.error("Error in searchInTable:", error);
     }
-  };
+  }, [checkAndRefresh, searchQuery, user?.uid]);
 
   //This For Get the Register Product Table
-  const getMyProduct = async () => {
+  const getMyProduct = useCallback(async () => {
     const token = await checkAndRefresh();
     axios
       .get(
@@ -212,17 +211,17 @@ export function Home() {
       .catch((error) => {
         console.error("Error Getting data:", error);
       });
-  };
+  }, [checkAndRefresh, page, rowsPerPage, user?.uid]);
 
   useEffect(() => {
     getMyProduct();
-  }, [user, productPage, rmaStatus, openConfirmDelete, rowsPerPage, page]);
+  }, [user, productPage, rmaStatus, openConfirmDelete, getMyProduct]);
 
   useEffect(() => {
     if (searchQuery) {
       searchInTable();
     }
-  }, [searchQuery]);
+  }, [searchQuery, searchInTable]);
 
   return (
     <>
@@ -555,7 +554,6 @@ export function Home() {
         {/* {Open RMA Info} */}
         {rmaInfo ? <RMAInfo handleInfo={handleInfo} /> : null}
       </div>
-      <button onClick={refreshingToken}>Testing</button>
     </>
   );
 }
