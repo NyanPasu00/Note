@@ -34,7 +34,7 @@ export function Login() {
 
     if (user !== null) {
       axios
-        .post("http://localhost:3002/loginInformation", {
+        .post("http://localhost:3001/loginInformation", {
           email: user?.email,
           name: user?.displayName,
           uid: user?.uid,

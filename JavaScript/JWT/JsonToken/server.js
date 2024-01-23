@@ -1,9 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const nodeMailer = require("nodemailer");
-const multer = require('multer');
+const multer = require("multer");
 const cookieParser = require("cookie-parser");
-const mysql = require("mysql");
 const cors = require("cors");
 const app = express();
 const jwt = require("jsonwebtoken");
@@ -20,22 +19,6 @@ app.use(
   })
 );
 
-
-
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_DATABASE,
-  charset: "utf8mb4",
-  multipleStatements: true,
-});
-
-db.connect((err) => {
-  if (err) throw err;
-  console.log("MySql Connected");
-});
-
 app.delete("/logout", (req, res) => {
   // Clear the refreshToken cookie on the client side
   res.clearCookie("refreshToken", { httpOnly: true });
@@ -46,64 +29,22 @@ app.delete("/logout", (req, res) => {
 
 app.post("/refreshtoken", (req, res) => {
   const refreshToken = req.cookies.refreshToken;
-  if (refreshToken == null) return res.sendStatus(401);
-
+  if (refreshToken == null) {
+    return res.json({ error: "Refresh token expired", expired: true });
+  }
   jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) {
+      return res.sendStatus(403); // Other verification errors
+    }
 
     const accessToken = generateAccessToken({ name: user.name });
     res.json({ accessToken: accessToken });
   });
 });
 
-app.post("/loginInformation", (req, res) => {
-  const email = req.body.email;
-  const name = req.body.name;
-  const uid = req.body.uid;
-  const user = { email: email, name: name, uid: uid };
-  const query = `
-  START TRANSACTION;
-  INSERT INTO client.rma_uid (email, name, uid)
-  SELECT "${email}" AS email, "${name}" AS name, "${uid}" AS uid
-  FROM (SELECT 1) as Dummy
-  WHERE NOT EXISTS (SELECT 1 FROM client.rma_uid WHERE uid = "${uid}")
-  LIMIT 1;
-  COMMIT;
-`;
-
-  db.query(query, (err, result) => {
-    if (err) {
-      console.log(err);
-      res.status(500).send("Database query error");
-    } else {
-      const accessToken = generateAccessToken(user);
-      const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET);
-      try {   
-        console.log("Setting refreshToken cookie...");
-     
-        const expirationTime = new Date(new Date().getTime() + 500 * 1000); // 5 seconds from now
-        res.cookie("refreshToken", refreshToken, {
-          sameSite: "strict",
-          path: "/",
-          expires: expirationTime,
-          httpOnly: true,
-        });
-
-        console.log("Cookie set successfully!");
-        res.status(200).json({
-          accessToken: accessToken,
-          affectedRows: result[1].affectedRows,
-        });
-      } catch (error) {
-        console.error("Error setting refreshToken cookie:", error);
-        res.status(500).send("Internal Server Error");
-      }
-    }
-  });
-});
-
 app.post("/checkingExpired", (req, res) => {
   const token = req.body.accessToken;
+
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
     if (err) {
       if (err.name === "TokenExpiredError") {
@@ -113,29 +54,75 @@ app.post("/checkingExpired", (req, res) => {
       console.log("Invalid token");
       return res.status(403).json({ error: "Invalid token" });
     } else {
-      // Continue with additional logic for a valid token if needed
       console.log("Token is valid");
-      // Additional logic here...
 
-      // Send a response back if necessary
       return res.json({ message: "Token is valid", refresh: false });
     }
   });
 });
 
+function generateAccessAndRefreshToken(req, res, user) {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET);
+  try {
+    console.log("Setting refreshToken cookie...");
+
+    const expirationTime = new Date(new Date().getTime() + 100 * 1000);
+    res.cookie("refreshToken", refreshToken, {
+      sameSite: "strict",
+      path: "/",
+      expires: expirationTime,
+      httpOnly: true,
+    });
+    console.log("Cookie set successfully!");
+    return { accessToken: accessToken, refreshToken: refreshToken };
+  } catch (error) {
+    console.error("Error setting refreshToken cookie:", error);
+  }
+}
+
 function generateAccessToken(user) {
   return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "10s" });
 }
 
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader) {
+    console.log("Authorization header missing");
+    return res.status(401).json({ error: "Authorization header missing" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    console.log("Bearer token missing");
+    return res.status(401).json({ error: "Bearer token missing" });
+  }
+
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+    if (err) {
+      if (err.name === "TokenExpiredError") {
+        console.log("Token expired");
+        return res.status(401).json({ error: "Token expired" });
+      }
+      console.log("Invalid token");
+      return res.json({ error: "Invalid token" });
+    }
+
+    console.log("Token is valid");
+    req.user = user;
+    next();
+  });
+}
+
 //Sending Email
-app.post('/sendemail', upload.array('selectedFiles'), (req, res) => {
+app.post("/sendemail", upload.array("selectedFiles"), (req, res) => {
   const { subject, toEmail, text } = req.body;
   const files = req.files;
   console.log(req.files);
-  console.log('Received Files:', files);
+  console.log("Received Files:", files);
 
   const transporter = nodeMailer.createTransport({
-    service: 'gmail',
+    service: "gmail",
     auth: {
       user: process.env.GMAIL,
       pass: process.env.PASSWORD,
@@ -145,7 +132,7 @@ app.post('/sendemail', upload.array('selectedFiles'), (req, res) => {
   const attachments = files.map((file) => ({
     filename: file.originalname,
     content: file.buffer,
-    encoding: 'base64',
+    encoding: "base64",
     mimetype: file.mimetype,
   }));
 
@@ -159,18 +146,23 @@ app.post('/sendemail', upload.array('selectedFiles'), (req, res) => {
 
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      console.error('Error sending email:', error);
+      console.error("Error sending email:", error);
 
       // Check if the error includes more details
       if (error.response) {
-        console.error('SMTP Error Response:', error.response);
+        console.error("SMTP Error Response:", error.response);
       }
 
-      res.status(500).send('Error sending email');
+      res.status(500).send("Error sending email");
     } else {
-      console.log('Email sent:', info.response);
-      res.status(200).send('Email Sent Successfully');
+      console.log("Email sent:", info.response);
+      res.status(200).send("Email Sent Successfully");
     }
   });
 });
-app.listen(3002);
+
+module.exports = { authenticateToken, generateAccessAndRefreshToken };
+
+app.listen(4000, () => {
+  console.log("Running In Port 4000");
+});

@@ -139,13 +139,12 @@ export function Home() {
   };
   let paginatedData = productTable;
 
-  if (searchQuery) {
+  if (searchQuery && filterProductTable.length >= 0) {
     paginatedData = filterProductTable.slice(
       page * rowsPerPage,
       page * rowsPerPage + rowsPerPage
     );
   }
-
   //Open RMA Info  or Close RMA Info
   const handleInfo = (status, information) => {
     setRmaInfo(status === "open" ? true : false);
@@ -168,6 +167,7 @@ export function Home() {
 
   const searchInTable = useCallback(async () => {
     const token = await checkAndRefresh();
+
     try {
       const response = await axios.post(
         `http://localhost:3001/searchProduct`,

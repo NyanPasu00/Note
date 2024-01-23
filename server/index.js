@@ -3,11 +3,12 @@ const express = require("express");
 const app = express();
 const mysql = require("mysql");
 const path = require("path");
-const multer = require("multer"); 
-const cors = require("cors"); 
+const multer = require("multer");
+const cors = require("cors");
 const {
   authenticateToken,
-} = require("../JavaScript/JWT/JsonToken/authMiddleware");
+  generateAccessAndRefreshToken,
+} = require("../JavaScript/JWT/JsonToken/server.js");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("uploads"));
@@ -18,8 +19,8 @@ app.use(
     methods: ["GET", "POST", "OPTIONS", "PUT"], // Add the relevant methods
     allowedHeaders: ["Content-Type", "Authorization"],
   })
-);  
-     
+); 
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -121,7 +122,7 @@ app.post(
     INSERT client.createrma
     SET reason = "${reason}" , serialNum = "${serialNum}" 
     , productImage="${imageFile}",productImage2="${imageFile2}",productVideo="${videoFile}" ;
-    COMMIT;`
+    COMMIT;`;
     db.query(query, (err, result) => {
       if (err) {
         console.log(err);
@@ -135,7 +136,7 @@ app.post(
 );
 
 //Get information from register Product
-app.get("/getregisProduct", authenticateToken, (req, res) => { 
+app.get("/getregisProduct", authenticateToken, (req, res) => {
   const uid = req.query.uid;
   const rowsPerPage = req.query.rowsPerPage;
   const page = req.query.page;
@@ -176,7 +177,7 @@ app.post("/searchProduct", authenticateToken, (req, res) => {
   OR CONCAT('RMA', LPAD(E.rma_id, 4, '0')) LIKE 'RMA%${searchQuery}%' OR E.reason LIKE '%${searchQuery}%' OR E.rmaStatus LIKE '%${searchQuery}%' ) AND uid ="${uid}" AND display =true; 
   COMMIT;
   `;
-
+ 
   db.query(query, (err, result) => {
     if (err) {
       console.log(err);
@@ -187,7 +188,7 @@ app.post("/searchProduct", authenticateToken, (req, res) => {
     }
   });
 });
-
+   
 //Check the Serial Number
 app.get("/checkserialnumber", authenticateToken, (req, res) => {
   const serialnumber = req.query.serialnumber;
@@ -208,7 +209,7 @@ app.get("/checkserialnumber", authenticateToken, (req, res) => {
 //Cancel the Product
 app.put("/cancelproduct", authenticateToken, (req, res) => {
   const id = req.query.id;
-
+ 
   const query = `
   START TRANSACTION;
   UPDATE client.registerproduct SET display = false WHERE id=${id} ;
@@ -220,7 +221,7 @@ app.put("/cancelproduct", authenticateToken, (req, res) => {
     } else {
       res.status(200).json(result);
     }
-  });
+  }); 
 });
 
 //Update the New Address at Create RMA
@@ -239,7 +240,7 @@ app.put("/updateAddress", authenticateToken, (req, res) => {
     }
   });
 });
-
+ 
 //Update Way Bill
 app.put("/updateWaybill", (req, res) => {
   const { waybill, courier, serialNum } = req.body;
@@ -254,9 +255,40 @@ app.put("/updateWaybill", (req, res) => {
     } else {
       res.status(200).json(result);
     }
-  }); 
-});
+  });
+}); 
+   
+app.post("/loginInformation", (req, res) => {
+  const email = req.body.email;
+  const name = req.body.name;
+  const uid = req.body.uid;
+  const user = { email: email, name: name, uid: uid };
+  const query = `
+    START TRANSACTION;
+    INSERT INTO client.rma_uid (email, name, uid)
+    SELECT "${email}" AS email, "${name}" AS name, "${uid}" AS uid
+    FROM (SELECT 1) as Dummy
+    WHERE NOT EXISTS (SELECT 1 FROM client.rma_uid WHERE uid = "${uid}")
+    LIMIT 1;
+    COMMIT;
+  `;
 
-app.listen(3001, () => {
+  db.query(query, (err, result) => {
+    if (err) {
+      console.log(err);
+      res.status(500).send("Database query error");
+    } else {
+      const token = generateAccessAndRefreshToken(req,res,user);
+      console.log(token); 
+      res.status(200).json({
+        accessToken: token.accessToken,
+        refreshToken: token.refreshToken,
+        affectedRows: result[1].affectedRows,
+      });
+    } 
+  });  
+}); 
+ 
+app.listen(3001, () => { 
   console.log("Running In Port 3001");
-});
+}); 

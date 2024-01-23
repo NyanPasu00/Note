@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
 
   const logOut = () => {
     axios
-      .delete("http://localhost:3002/logout")
+      .delete("http://localhost:4000/logout")
       .then(() => {
         console.log("Success Clear");
       })
@@ -59,42 +59,51 @@ export const AuthProvider = ({ children }) => {
     signOut(auth);
   };
 
-  const refreshingToken = async () => {
-    try {
-      const response = await axios.post("http://localhost:3002/refreshToken");
-
-      await setAccessToken(response.data.accessToken);
-
-      return response.data.accessToken;
-    } catch (error) {
-      console.error("Error refreshing token:", error);
-    }
+  const refreshingToken = () => {
+    axios
+      .post("http://localhost:4000/refreshToken")
+      .then((response) => {
+        if (response.data.expired) {
+          return logOut();
+        }
+        setAccessToken(response.data.accessToken);
+        return response.data.accessToken;
+      })
+      .catch((error) => {
+        console.error("Error refreshing token:", error);
+      });
   };
   const checkingTokenExpired = async () => {
     try {
       const response = await axios.post(
-        "http://localhost:3002/checkingExpired",
+        "http://localhost:4000/checkingExpired",
         {
           accessToken: accessToken,
         }
       );
-      return response.data.refresh;
+
+      if (response.data && response.data.refresh !== undefined) {
+        return response.data.refresh;
+      } else {
+        console.error("Invalid response format:", response.data);
+      }
     } catch (error) {
-      console.error("Error checking token expiration:", error);
+      console.error("Error checking token expiration:", error.message);
     }
   };
   const checkAndRefresh = async () => {
     const isTokenExpired = await checkingTokenExpired();
 
     if (isTokenExpired) {
-      const newAccessToken = await refreshingToken();
-      console.log("New AccessToken");
+      const newAccessToken = refreshingToken();
+      console.log("Refresh");
       return newAccessToken;
     } else {
       console.log("AccessToken is still valid");
       return accessToken;
     }
   };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
