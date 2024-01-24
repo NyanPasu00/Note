@@ -1,9 +1,11 @@
+
 import moment from "moment";
 import axios from "axios";
 import React, { useContext, useState } from "react";
 import AuthContext from "../context/AuthProvider";
+import imageCompression from 'browser-image-compression';
+import { PDFDocument } from 'pdf-lib';
 import "./style.css";
-
 //Material UI
 import { Button, TextField } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -75,9 +77,17 @@ export function RegisProduct({ handleRegisProductPage }) {
   };
 
   //Upload Image or PDF
-  const handlePDFImageUpload = (e) => {
+  const handlePDFImageUpload = async (e) => {
     const file = e.target.files[0];
-    setSelectedFile(file);
+  
+    try {
+      const compressingFile = await compressFile(file);
+      console.log(compressingFile);
+      console.log(file);
+      setSelectedFile(compressingFile);
+    } catch (error) {
+      console.error('Error handling PDF image upload:', error);
+    }
   };
 
   //If Serial Number Change Set New Serial Number and Need to Check Again
@@ -244,7 +254,46 @@ export function RegisProduct({ handleRegisProductPage }) {
     });
   };
 
- 
+  const compressFile = async (file) => {
+    try {
+      if (file.type.startsWith('image/')) {
+        // Compress image
+        const compressedBlob = await imageCompression(file, {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 400,
+          outputFormat: 'jpg',
+        });
+  
+        const compressedFile = new File([compressedBlob], file.name, {
+          type: compressedBlob.type,
+          lastModified: Date.now(),
+        });
+  
+        return compressedFile;
+
+      } else if (file.type === 'application/pdf') {
+        // Compress PDF
+        const pdfBytes = await file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(pdfBytes);
+  
+        // Compress the PDF (example: saving it again)
+        const compressedPdfBytes = await pdfDoc.save();
+  
+        const compressedPdfFile = new File([compressedPdfBytes], file.name, {
+          type: 'application/pdf',
+          lastModified: Date.now(),
+        });
+  
+        return compressedPdfFile;
+      } else {
+        // Unsupported file type, return the original file
+        return file;
+      }
+    } catch (error) {
+      console.error('Error compressing file:', error);
+      throw error; // Rethrow the error to handle it in the caller
+    }
+  };
 
   return (
     <>

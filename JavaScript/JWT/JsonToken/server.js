@@ -67,7 +67,7 @@ function generateAccessAndRefreshToken(req, res, user) {
   try {
     console.log("Setting refreshToken cookie...");
 
-    const expirationTime = new Date(new Date().getTime() + 100 * 1000);
+    const expirationTime = new Date(new Date().getTime() + 500 * 1000);
     res.cookie("refreshToken", refreshToken, {
       sameSite: "strict",
       path: "/",
@@ -82,7 +82,7 @@ function generateAccessAndRefreshToken(req, res, user) {
 }
 
 function generateAccessToken(user) {
-  return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "10s" });
+  return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "20s" });
 }
 
 function authenticateToken(req, res, next) {

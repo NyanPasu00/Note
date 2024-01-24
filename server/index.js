@@ -20,7 +20,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 ); 
-
+  
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -247,7 +247,7 @@ app.put("/updateWaybill", (req, res) => {
 
   const query = `UPDATE client.registerproduct SET waybill="${waybill}" , courier="${courier}" 
   WHERE serialNum="${serialNum}";`;
-
+ 
   db.query(query, (err, result) => {
     if (err) {
       console.log(err);
@@ -272,7 +272,7 @@ app.post("/loginInformation", (req, res) => {
     LIMIT 1;
     COMMIT;
   `;
-
+ 
   db.query(query, (err, result) => {
     if (err) {
       console.log(err);

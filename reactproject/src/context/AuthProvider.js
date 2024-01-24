@@ -1,11 +1,11 @@
 import { createContext, useEffect, useState } from "react";
 import { signOut, onAuthStateChanged, signInWithRedirect } from "firebase/auth";
 import { auth, provider } from "../firebase";
+import imageCompression from "browser-image-compression";
+import { PDFDocument } from "pdf-lib";
 import styled from "@emotion/styled";
 import axios from "axios";
-
 const AuthContext = createContext();
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [newUser, setNewUser] = useState(false);
@@ -59,19 +59,21 @@ export const AuthProvider = ({ children }) => {
     signOut(auth);
   };
 
-  const refreshingToken = () => {
-    axios
-      .post("http://localhost:4000/refreshToken")
-      .then((response) => {
-        if (response.data.expired) {
-          return logOut();
-        }
-        setAccessToken(response.data.accessToken);
-        return response.data.accessToken;
-      })
-      .catch((error) => {
-        console.error("Error refreshing token:", error);
-      });
+  const refreshingToken = async () => {
+    try {
+      const response = await axios.post("http://localhost:4000/refreshToken");
+
+      if (response.data.expired) {
+        await logOut();
+      }
+
+      const newToken = response.data.accessToken;
+      setAccessToken(newToken);
+      return newToken;
+    } catch (error) {
+      console.error("Error refreshing token:", error);
+      throw error;
+    }
   };
   const checkingTokenExpired = async () => {
     try {
@@ -82,11 +84,7 @@ export const AuthProvider = ({ children }) => {
         }
       );
 
-      if (response.data && response.data.refresh !== undefined) {
-        return response.data.refresh;
-      } else {
-        console.error("Invalid response format:", response.data);
-      }
+      return response.data.refresh;
     } catch (error) {
       console.error("Error checking token expiration:", error.message);
     }
@@ -95,12 +93,54 @@ export const AuthProvider = ({ children }) => {
     const isTokenExpired = await checkingTokenExpired();
 
     if (isTokenExpired) {
-      const newAccessToken = refreshingToken();
-      console.log("Refresh");
-      return newAccessToken;
+      try {
+        const newAccessToken = await refreshingToken();
+        console.log("Refresh");
+        return newAccessToken;
+      } catch (error) {
+        console.error("Error refreshing token:", error);
+        // Handle the error if needed
+      }
     } else {
       console.log("AccessToken is still valid");
       return accessToken;
+    }
+  };
+
+  const compressFile = async (file) => {
+    try {
+      if (file.type.startsWith("image/")) {
+        // Compress image
+        const compressedBlob = await imageCompression(file, {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 400,
+          outputFormat: "jpg",
+        });
+
+        const compressedFile = new File([compressedBlob], file.name, {
+          type: compressedBlob.type,
+          lastModified: Date.now(),
+        });
+
+        return compressedFile;
+      } else if (file.type === "application/pdf") {
+        // Compress PDF
+        const pdfBytes = await file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(pdfBytes);
+
+        // Compress the PDF (example: saving it again)
+        const compressedPdfBytes = await pdfDoc.save();
+
+        const compressedPdfFile = new File([compressedPdfBytes], file.name, {
+          type: "application/pdf",
+          lastModified: Date.now(),
+        });
+
+        return compressedPdfFile;
+      }
+    } catch (error) {
+      console.error("Error compressing file:", error);
+      throw error; // Rethrow the error to handle it in the caller
     }
   };
 
