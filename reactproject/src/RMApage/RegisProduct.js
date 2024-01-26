@@ -82,8 +82,6 @@ export function RegisProduct({ handleRegisProductPage }) {
   
     try {
       const compressingFile = await compressFile(file);
-      console.log(compressingFile);
-      console.log(file);
       setSelectedFile(compressingFile);
     } catch (error) {
       console.error('Error handling PDF image upload:', error);
